@@ -2,6 +2,10 @@
 
 ROS 2 Jazzy Python package for Raspberry Pi GPIO control using `gpiozero`.
 
+## Dependencies
+- [gpiozero](https://pypi.org/project/gpiozero/)
+- [ros_common_srvs](https://github.com/ICE9-Robotics/ros_common_srvs)
+
 ## Supported gpiozero base classes
 
 - `DigitalInputDevice`

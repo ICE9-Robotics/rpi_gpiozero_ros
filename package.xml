@@ -3,7 +3,7 @@
   <name>rpi5_gpiozero_ros</name>
   <version>0.1.0</version>
   <description>ROS 2 Jazzy package for Raspberry Pi 5 GPIO with gpiozero.</description>
-  <maintainer email="anthony@example.com">anthony</maintainer>
+  <maintainer email="anthony.jiang.github@outlook.com">anthony</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
