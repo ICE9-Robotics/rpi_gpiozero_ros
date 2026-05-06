@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>rpi5_gpiozero_ros</name>
+  <name>rpi_gpiozero_ros</name>
   <version>0.1.0</version>
   <description>ROS 2 Jazzy package for Raspberry Pi 5 GPIO with gpiozero.</description>
   <maintainer email="anthony.jiang.github@outlook.com">anthony</maintainer>

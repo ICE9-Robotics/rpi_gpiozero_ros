@@ -10,7 +10,7 @@ from ros_common_srvs.srv import SetFloat32
 from std_msgs.msg import Bool, Float32
 from std_srvs.srv import SetBool
 
-from rpi5_gpiozero_ros.gpio_devices import (
+from rpi_gpiozero_ros.gpio_devices import (
     GPIODeviceRegistry,
     PinType,
     DigitalInputConfig,

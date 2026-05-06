@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = "rpi5_gpiozero_ros"
+package_name = "rpi_gpiozero_ros"
 
 setup(
     name=package_name,
@@ -21,7 +21,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "gpiozero_node = rpi5_gpiozero_ros.gpio_node:main",
+            "gpiozero_node = rpi_gpiozero_ros.gpio_node:main",
         ],
     },
 )

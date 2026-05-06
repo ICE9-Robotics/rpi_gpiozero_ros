@@ -24,14 +24,14 @@ ROS 2 Jazzy Python package for Raspberry Pi GPIO control using `gpiozero`.
 
 ```bash
 cd /path/to/workspace
-colcon build --packages-select rpi5_gpiozero_ros
+colcon build --packages-select rpi_gpiozero_ros
 ```
 
 ## Run
 
 ```bash
 source install/setup.bash
-ros2 launch rpi5_gpiozero_ros gpiozero_node.launch.py
+ros2 launch rpi_gpiozero_ros gpiozero_node.launch.py
 ```
 
 ## Parameter file

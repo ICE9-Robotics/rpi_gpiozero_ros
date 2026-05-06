@@ -12,13 +12,13 @@ def generate_launch_description() -> LaunchDescription:
     params_file_arg = DeclareLaunchArgument(
         "params_file",
         default_value=PathJoinSubstitution(
-            [FindPackageShare("rpi5_gpiozero_ros"), "config", "gpiozero_params.yaml"]
+            [FindPackageShare("rpi_gpiozero_ros"), "config", "gpiozero_params.yaml"]
         ),
         description="Path to YAML parameter file for gpiozero_node.",
     )
 
     node = Node(
-        package="rpi5_gpiozero_ros",
+        package="rpi_gpiozero_ros",
         executable="gpiozero_node",
         name="gpiozero_node",
         output="screen",
