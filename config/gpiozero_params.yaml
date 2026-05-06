@@ -1,0 +1,33 @@
+gpiozero_node:
+  ros__parameters:
+    pin_factory: auto
+    pin_numbering: bcm
+    publish_rate_hz: 20.0
+
+    digital_input:
+      names: ["button_a", "button_b"]
+      pins: [17, 27]
+      pull_up: [true, false]
+      bounce_time: [0.01, 0.05]
+      active_state: [-1, 1]
+
+    smoothed_input:
+      names: ["smoothed_sensor"]
+      pins: [22]
+      queue_len: 5
+      sample_wait: 0.01
+      threshold: 0.5
+      partial: false
+
+    digital_output:
+      names: ["led_a"]
+      pins: [23]
+      active_high: true
+      initial_value: false
+
+    pwm_output:
+      names: ["pwm_led"]
+      pins: [18]
+      active_high: true
+      initial_value: 0.0
+      frequency: 100.0
