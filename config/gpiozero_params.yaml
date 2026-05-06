@@ -2,32 +2,38 @@ gpiozero_node:
   ros__parameters:
     pin_factory: auto
     pin_numbering: bcm
-    publish_rate_hz: 20.0
-
-    digital_input:
-      names: ["button_a", "button_b"]
-      pins: [17, 27]
-      pull_up: [true, false]
-      bounce_time: [0.01, 0.05]
-      active_state: [-1, 1]
-
-    smoothed_input:
-      names: ["smoothed_sensor"]
-      pins: [22]
-      queue_len: 5
-      sample_wait: 0.01
-      threshold: 0.5
-      partial: false
-
-    digital_output:
-      names: ["led_a"]
-      pins: [23]
-      active_high: true
-      initial_value: false
-
-    pwm_output:
-      names: ["pwm_led"]
-      pins: [18]
-      active_high: true
-      initial_value: 0.0
-      frequency: 100.0
+    
+    gpio:
+      button:
+        type: digital_input
+        pin: 17
+        pull_up: true
+        bounce_time: 0.01
+        publish_rate_hz: 100.0
+      light_enable:
+        type: digital_output
+        pin: 12
+        active_high: true
+        initial_value: false
+      motor_enable:
+        type: digital_output
+        pin: 16
+        active_high: true
+        initial_value: false
+      gimbal_enable:
+        type: digital_output
+        pin: 26
+        active_high: true
+        initial_value: false
+      front_led_pwm:
+        type: pwm_output
+        pin: 14
+        active_high: true
+        initial_value: 0.0
+        frequency: 100.0
+      back_led_pwm:
+        type: pwm_output
+        pin: 15
+        active_high: true
+        initial_value: 0.0
+        frequency: 100.0

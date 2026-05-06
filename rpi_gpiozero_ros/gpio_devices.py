@@ -5,7 +5,7 @@ from typing import Dict, Optional, Set, Union
 
 from gpiozero import DigitalInputDevice, DigitalOutputDevice, PWMOutputDevice, SmoothedInputDevice
 from gpiozero import Device
-from gpiozero.pins.mock import MockFactory
+from gpiozero.pins.mock import MockFactory, MockPWMPin
 
 
 PinType = Union[int, str]
@@ -17,7 +17,7 @@ class DigitalInputConfig:
 
     name: str
     pin: PinType
-    pull_up: bool
+    pull_up: Optional[bool]
     bounce_time: Optional[float]
     active_state: Optional[bool]
 
@@ -61,7 +61,8 @@ def configure_pin_factory(pin_factory_mode: str) -> None:
     if pin_factory_mode == "auto":
         return
     if pin_factory_mode == "mock":
-        Device.pin_factory = MockFactory()
+        # Use PWM-capable mock pins so PWMOutputDevice works in off-target tests.
+        Device.pin_factory = MockFactory(pin_class=MockPWMPin)
         return
     raise ValueError("Unsupported pin_factory mode. Use 'auto' or 'mock'.")
 
