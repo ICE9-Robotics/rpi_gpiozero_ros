@@ -2,7 +2,7 @@
 
 import re
 from functools import partial
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import rclpy
 from rclpy.node import Node
@@ -47,40 +47,19 @@ class GPIOZeroNode(Node):
     def _setup_devices(self) -> None:
         """Instantiate gpiozero devices from ROS parameters."""
         pin_numbering = self._string_param("pin_numbering", "bcm")
-        if self._setup_named_devices(pin_numbering):
-            return
-        if self._setup_indexed_devices(pin_numbering):
-            return
-        self._setup_digital_inputs(pin_numbering)
-        self._setup_smoothed_inputs(pin_numbering)
-        self._setup_digital_outputs(pin_numbering)
-        self._setup_pwm_outputs(pin_numbering)
-
-    def _setup_named_devices(self, pin_numbering: str) -> bool:
-        """Instantiate devices from `gpio.<name>.<field>` style parameters."""
         specs = self._collect_named_device_specs()
         if not specs:
-            return False
-        for name in sorted(specs.keys()):
-            self._setup_device_spec(specs[name], pin_numbering, f"gpio.{name}", explicit_name=name)
-        return True
+            raise ValueError(
+                "No GPIO devices configured. Declare parameters under gpio.<logical_name>.<field> "
+                "(for example gpio.button.type and gpio.button.pin)."
+            )
+        for logical_name in sorted(specs.keys()):
+            self._setup_device_spec(specs[logical_name], pin_numbering, logical_name)
 
-    def _setup_indexed_devices(self, pin_numbering: str) -> bool:
-        """Instantiate devices from `devices.<index>.*` style parameters."""
-        specs = self._collect_indexed_device_specs()
-        if not specs:
-            return False
-
-        for index in sorted(specs.keys()):
-            self._setup_device_spec(specs[index], pin_numbering, f"devices.{index}")
-
-        return True
-
-    def _setup_device_spec(
-        self, spec: Dict[str, Any], pin_numbering: str, path_prefix: str, explicit_name: Optional[str] = None
-    ) -> None:
+    def _setup_device_spec(self, spec: Dict[str, Any], pin_numbering: str, logical_name: str) -> None:
         """Instantiate one device from a normalized spec dict."""
-        name = explicit_name or self._required_string_field(spec, "name", path_prefix)
+        path_prefix = f"gpio.{logical_name}"
+        name = logical_name
         device_type = self._required_string_field(spec, "type", path_prefix).strip().lower()
         pin = self._required_int_field(spec, "pin", path_prefix)
         self._validate_non_negative_int(pin, f"{path_prefix}.pin")
@@ -178,18 +157,6 @@ class GPIOZeroNode(Node):
             specs.setdefault(name, {})[field] = param.value
         return specs
 
-    def _collect_indexed_device_specs(self) -> Dict[int, Dict[str, Any]]:
-        """Collect device specs from parameter names like `devices.0.name`."""
-        specs: Dict[int, Dict[str, Any]] = {}
-        for param_name, param in self._parameters.items():
-            match = re.match(r"^devices(?:\.|\[)(\d+)(?:\])?\.(\w+)$", param_name)
-            if match is None:
-                continue
-            index = int(match.group(1))
-            field = match.group(2)
-            specs.setdefault(index, {})[field] = param.value
-        return specs
-
     def _required_string_field(self, spec: Dict[str, Any], field: str, path_prefix: str) -> str:
         """Read required string field from a device spec."""
         if field not in spec:
@@ -208,140 +175,36 @@ class GPIOZeroNode(Node):
         return self._int_from_spec(spec[field], f"{path_prefix}.{field}")
 
     def _bool_from_spec(self, value: Any, field_name: str) -> bool:
-        """Validate scalar bool field from indexed device spec."""
+        """Validate scalar bool field from a gpio device spec."""
         if not isinstance(value, bool):
             raise ValueError(f"'{field_name}' must be a bool.")
         return value
 
     def _optional_bool_spec(self, value: Any, field_name: str) -> Optional[bool]:
-        """Validate optional bool field from indexed device spec."""
+        """Validate optional bool field from a gpio device spec."""
         if value is None:
             return None
         return self._bool_from_spec(value, field_name)
 
     def _int_from_spec(self, value: Any, field_name: str) -> int:
-        """Validate scalar integer field from indexed device spec."""
+        """Validate scalar integer field from a gpio device spec."""
         if isinstance(value, bool) or not isinstance(value, int):
             raise ValueError(f"'{field_name}' must be an integer.")
         return int(value)
 
     def _float_from_spec(self, value: Any, field_name: str) -> float:
-        """Validate scalar numeric field from indexed device spec."""
+        """Validate scalar numeric field from a gpio device spec."""
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"'{field_name}' must be numeric.")
         return float(value)
 
     def _optional_non_negative_float_spec(self, value: Any, field_name: str) -> Optional[float]:
-        """Validate optional non-negative float field from indexed device spec."""
+        """Validate optional non-negative float field from a gpio device spec."""
         if value is None:
             return None
         parsed = self._float_from_spec(value, field_name)
         self._validate_non_negative_float(parsed, field_name)
         return parsed
-
-    def _setup_digital_inputs(self, pin_numbering: str) -> None:
-        """Instantiate DigitalInputDevice objects from ROS parameters."""
-        di_names = self._string_list("digital_input.names", [])
-        di_pins = self._int_list("digital_input.pins", [])
-        self._validate_lengths(di_names, di_pins, "digital_input.names", "digital_input.pins")
-
-        pull_up_values = self._resolve_bool_param("digital_input.pull_up", len(di_names), True)
-        bounce_values = self._resolve_float_param("digital_input.bounce_time", len(di_names), 0.0)
-        active_state_values = self._resolve_int_param("digital_input.active_state", len(di_names), -1)
-
-        for index, (name, pin) in enumerate(zip(di_names, di_pins)):
-            self._validate_non_negative_int(pin, f"digital_input.pins[{index}]")
-            self._validate_non_negative_float(bounce_values[index], f"digital_input.bounce_time[{index}]")
-            self._validate_active_state(active_state_values[index], f"digital_input.active_state[{index}]")
-            self._validate_input_mode(
-                pull_up_values[index],
-                active_state_values[index],
-                f"digital_input.pull_up[{index}]",
-                f"digital_input.active_state[{index}]",
-            )
-            bounce_time = bounce_values[index] if bounce_values[index] > 0.0 else None
-            active_state: Optional[bool] = None if active_state_values[index] < 0 else bool(active_state_values[index])
-            self._registry.add_digital_input(
-                DigitalInputConfig(
-                    name=name,
-                    pin=self._resolve_pin(pin_numbering, pin),
-                    pull_up=pull_up_values[index],
-                    bounce_time=bounce_time,
-                    active_state=active_state,
-                )
-            )
-
-    def _setup_smoothed_inputs(self, pin_numbering: str) -> None:
-        """Instantiate SmoothedInputDevice objects from ROS parameters."""
-        si_names = self._string_list("smoothed_input.names", [])
-        si_pins = self._int_list("smoothed_input.pins", [])
-        self._validate_lengths(si_names, si_pins, "smoothed_input.names", "smoothed_input.pins")
-
-        queue_len_values = self._resolve_int_param("smoothed_input.queue_len", len(si_names), 5)
-        sample_wait_values = self._resolve_float_param("smoothed_input.sample_wait", len(si_names), 0.0)
-        threshold_values = self._resolve_float_param("smoothed_input.threshold", len(si_names), 0.5)
-        partial_values = self._resolve_bool_param("smoothed_input.partial", len(si_names), False)
-
-        for index, (name, pin) in enumerate(zip(si_names, si_pins)):
-            self._validate_non_negative_int(pin, f"smoothed_input.pins[{index}]")
-            self._validate_positive_int(queue_len_values[index], f"smoothed_input.queue_len[{index}]")
-            self._validate_non_negative_float(sample_wait_values[index], f"smoothed_input.sample_wait[{index}]")
-            self._validate_unit_interval(threshold_values[index], f"smoothed_input.threshold[{index}]")
-            self._registry.add_smoothed_input(
-                SmoothedInputConfig(
-                    name=name,
-                    pin=self._resolve_pin(pin_numbering, pin),
-                    queue_len=queue_len_values[index],
-                    sample_wait=sample_wait_values[index],
-                    threshold=threshold_values[index],
-                    partial=partial_values[index],
-                    ignore=None,
-                )
-            )
-
-    def _setup_digital_outputs(self, pin_numbering: str) -> None:
-        """Instantiate DigitalOutputDevice objects from ROS parameters."""
-        do_names = self._string_list("digital_output.names", [])
-        do_pins = self._int_list("digital_output.pins", [])
-        self._validate_lengths(do_names, do_pins, "digital_output.names", "digital_output.pins")
-
-        active_high_values = self._resolve_bool_param("digital_output.active_high", len(do_names), True)
-        initial_value_values = self._resolve_bool_param("digital_output.initial_value", len(do_names), False)
-
-        for index, (name, pin) in enumerate(zip(do_names, do_pins)):
-            self._validate_non_negative_int(pin, f"digital_output.pins[{index}]")
-            self._registry.add_digital_output(
-                DigitalOutputConfig(
-                    name=name,
-                    pin=self._resolve_pin(pin_numbering, pin),
-                    active_high=active_high_values[index],
-                    initial_value=initial_value_values[index],
-                )
-            )
-
-    def _setup_pwm_outputs(self, pin_numbering: str) -> None:
-        """Instantiate PWMOutputDevice objects from ROS parameters."""
-        pwm_names = self._string_list("pwm_output.names", [])
-        pwm_pins = self._int_list("pwm_output.pins", [])
-        self._validate_lengths(pwm_names, pwm_pins, "pwm_output.names", "pwm_output.pins")
-
-        active_high_values = self._resolve_bool_param("pwm_output.active_high", len(pwm_names), True)
-        initial_value_values = self._resolve_float_param("pwm_output.initial_value", len(pwm_names), 0.0)
-        frequency_values = self._resolve_float_param("pwm_output.frequency", len(pwm_names), 100.0)
-
-        for index, (name, pin) in enumerate(zip(pwm_names, pwm_pins)):
-            self._validate_non_negative_int(pin, f"pwm_output.pins[{index}]")
-            self._validate_unit_interval(initial_value_values[index], f"pwm_output.initial_value[{index}]")
-            self._validate_positive_float(frequency_values[index], f"pwm_output.frequency[{index}]")
-            self._registry.add_pwm_output(
-                PWMOutputConfig(
-                    name=name,
-                    pin=self._resolve_pin(pin_numbering, pin),
-                    active_high=active_high_values[index],
-                    initial_value=initial_value_values[index],
-                    frequency=frequency_values[index],
-                )
-            )
 
     def _setup_interfaces(self) -> None:
         """Create ROS publishers and services for all devices."""
@@ -411,79 +274,6 @@ class GPIOZeroNode(Node):
         response.message = f"Set pwm output '{output_name}' to {value:.3f}"
         return response
 
-    def _validate_lengths(self, a: List[Any], b: List[Any], a_name: str, b_name: str) -> None:
-        """Validate that paired parameter arrays are aligned."""
-        if len(a) != len(b):
-            raise ValueError(f"'{a_name}' and '{b_name}' must have the same length.")
-
-    def _string_list(self, param_name: str, default: List[str]) -> List[str]:
-        """Read a ROS string array parameter with default fallback."""
-        param = self._get_parameter_or_none(param_name)
-        if param is None:
-            return default
-        if param.type_ != Parameter.Type.STRING_ARRAY:
-            raise ValueError(f"'{param_name}' must be a string array.")
-        return list(param.value)
-
-    def _int_list(self, param_name: str, default: List[int]) -> List[int]:
-        """Read a ROS integer array parameter with default fallback."""
-        param = self._get_parameter_or_none(param_name)
-        if param is None:
-            return default
-        if param.type_ != Parameter.Type.INTEGER_ARRAY:
-            raise ValueError(f"'{param_name}' must be an integer array.")
-        return list(param.value)
-
-    def _resolve_bool_param(self, param_name: str, count: int, default: bool) -> List[bool]:
-        """Resolve scalar-or-array bool parameter into per-device list."""
-        param = self._get_parameter_or_none(param_name)
-        if param is None:
-            return [default] * count
-        if param.type_ == Parameter.Type.BOOL_ARRAY:
-            values = list(param.value)
-            self._validate_count(values, param_name, count)
-            return values
-        if param.type_ == Parameter.Type.BOOL:
-            return [bool(param.value)] * count
-        raise ValueError(f"'{param_name}' must be bool or bool array.")
-
-    def _resolve_int_param(self, param_name: str, count: int, default: int) -> List[int]:
-        """Resolve scalar-or-array int parameter into per-device list."""
-        param = self._get_parameter_or_none(param_name)
-        if param is None:
-            return [default] * count
-        if param.type_ == Parameter.Type.INTEGER_ARRAY:
-            values = list(param.value)
-            self._validate_count(values, param_name, count)
-            return values
-        if param.type_ == Parameter.Type.INTEGER:
-            return [int(param.value)] * count
-        raise ValueError(f"'{param_name}' must be integer or integer array.")
-
-    def _resolve_float_param(self, param_name: str, count: int, default: float) -> List[float]:
-        """Resolve scalar-or-array float parameter into per-device list."""
-        param = self._get_parameter_or_none(param_name)
-        if param is None:
-            return [default] * count
-        if param.type_ == Parameter.Type.DOUBLE_ARRAY:
-            values = [float(value) for value in param.value]
-            self._validate_count(values, param_name, count)
-            return values
-        if param.type_ == Parameter.Type.INTEGER_ARRAY:
-            values = [float(value) for value in param.value]
-            self._validate_count(values, param_name, count)
-            return values
-        if param.type_ == Parameter.Type.DOUBLE:
-            return [float(param.value)] * count
-        if param.type_ == Parameter.Type.INTEGER:
-            return [float(param.value)] * count
-        raise ValueError(f"'{param_name}' must be float/int scalar or array.")
-
-    def _validate_count(self, values: List[Any], values_name: str, expected_count: int) -> None:
-        """Validate optional value list count against number of devices."""
-        if len(values) != expected_count:
-            raise ValueError(f"'{values_name}' length must match corresponding device names length.")
-
     def _validate_non_negative_int(self, value: int, param_name: str) -> None:
         """Validate integer values that cannot be negative."""
         if value < 0:
@@ -508,25 +298,6 @@ class GPIOZeroNode(Node):
         """Validate float values in closed unit interval."""
         if value < 0.0 or value > 1.0:
             raise ValueError(f"'{param_name}' must be in range [0.0, 1.0].")
-
-    def _validate_active_state(self, value: int, param_name: str) -> None:
-        """Validate digital input active state enum values."""
-        if value not in (-1, 0, 1):
-            raise ValueError(f"'{param_name}' must be one of -1, 0, 1.")
-
-    def _validate_input_mode(
-        self,
-        pull_up: bool,
-        active_state: int,
-        pull_up_name: str,
-        active_state_name: str,
-    ) -> None:
-        """Validate gpiozero input mode compatibility."""
-        if pull_up in (True, False) and active_state != -1:
-            raise ValueError(
-                f"'{active_state_name}' must be -1 when '{pull_up_name}' is true or false. "
-                "gpiozero only supports custom active_state for floating inputs."
-            )
 
     def _get_parameter_or_none(self, param_name: str) -> Optional[Parameter]:
         """Fetch parameter by name when declared or auto-declared from overrides."""
@@ -557,11 +328,12 @@ class GPIOZeroNode(Node):
     def _resolve_pin(self, pin_numbering: str, pin: int) -> PinType:
         """Resolve configured pin number to gpiozero pin identifier."""
         normalized = pin_numbering.strip().lower()
+        if not normalized in ["bcm", "gpio", "board", "wpi"]:
+            raise ValueError(f"Unsupported 'pin_numbering'. Use 'bcm', 'gpio', 'board', or 'wpi'.")
         if normalized == "bcm":
-            return pin
-        if normalized == "gpio":
-            return f"GPIO{pin}"
-        raise ValueError("Unsupported 'pin_numbering'. Use 'bcm' or 'gpio'.")
+            return int(pin)
+        else:
+            return f"{normalized.upper()}{int(pin)}"
 
     def destroy_node(self) -> bool:
         self._registry.close()
