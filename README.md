@@ -69,7 +69,7 @@ The map key `<logical_name>` becomes the device name in topics and services. Req
 
 | `type` | Extra fields | Notes |
 |--------|----------------|-------|
-| `digital_input` | `pull_up` (bool, optional), `bounce_time` (float, optional), `active_state` (bool, optional), `publish_rate_hz` (float, optional) | If `pull_up` is omitted and `active_state` is omitted, behaviour matches gpiozero pull-up default (`pull_up=true`). Omit `pull_up` (floating) **only** if you need `active_state`; gpiozero does not allow both `pull_up=true/false` and a custom `active_state`. |
+| `digital_input` | `pull_up` (bool, optional), `bounce_time` (float, optional), `active_state` (bool, optional), `publish_rate_hz` (float, optional) | If `pull_up` is omitted and `active_state` is omitted, behaviour matches gpiozero pull-up default (`pull_up=true`). If you set `active_state`, you **must** omit `pull_up`; gpiozero does not allow both `pull_up=true/false` and a custom `active_state`. See [also](https://gpiozero.readthedocs.io/en/stable/api_input.html#inputdevice).|
 | `smoothed_input` | `queue_len` (int, default `5`), `sample_wait` (float, default `0.0`), `threshold` (float, default `0.5`), `partial` (bool, default `false`), `publish_rate_hz` (optional) | `queue_len` must be `> 0`; `threshold` in `[0.0, 1.0]`. |
 | `digital_output` | `active_high` (bool, default `true`), `initial_value` (bool, default `false`) | |
 | `pwm_output` | `active_high` (bool, default `true`), `initial_value` (float, default `0.0`), `frequency` (float, default `100.0`) | `initial_value` in `[0.0, 1.0]`; `frequency` must be `> 0`. On real Pi hardware, BCM **PWM-capable pins** restrictions still apply (same as gpiozero). |
