@@ -27,11 +27,7 @@ class GPIOZeroNode(Node):
     def __init__(self) -> None:
         super().__init__("gpiozero_node", automatically_declare_parameters_from_overrides=True)
 
-        self.declare_parameter("pin_factory", "auto")
-        self.declare_parameter("pin_numbering", "bcm")
-        self.declare_parameter("publish_rate_hz", 20.0)
-
-        pin_factory_mode = self.get_parameter("pin_factory").get_parameter_value().string_value
+        pin_factory_mode = self._string_param("pin_factory", "auto")
         configure_pin_factory(pin_factory_mode)
 
         self._registry = GPIODeviceRegistry()
@@ -42,14 +38,14 @@ class GPIOZeroNode(Node):
         self._setup_devices()
         self._setup_interfaces()
 
-        publish_rate_hz = self.get_parameter("publish_rate_hz").get_parameter_value().double_value
+        publish_rate_hz = self._float_param("publish_rate_hz", 20.0)
         if publish_rate_hz <= 0.0:
             raise ValueError("publish_rate_hz must be > 0.0")
         self._timer = self.create_timer(1.0 / publish_rate_hz, self._publish_inputs)
 
     def _setup_devices(self) -> None:
         """Instantiate gpiozero devices from ROS parameters."""
-        pin_numbering = self.get_parameter("pin_numbering").get_parameter_value().string_value
+        pin_numbering = self._string_param("pin_numbering", "bcm")
         self._setup_digital_inputs(pin_numbering)
         self._setup_smoothed_inputs(pin_numbering)
         self._setup_digital_outputs(pin_numbering)
@@ -329,6 +325,26 @@ class GPIOZeroNode(Node):
         if not self.has_parameter(param_name):
             return None
         return self.get_parameter(param_name)
+
+    def _string_param(self, param_name: str, default: str) -> str:
+        """Read scalar string parameter with default fallback."""
+        param = self._get_parameter_or_none(param_name)
+        if param is None:
+            return default
+        if param.type_ != Parameter.Type.STRING:
+            raise ValueError(f"'{param_name}' must be a string.")
+        return str(param.value)
+
+    def _float_param(self, param_name: str, default: float) -> float:
+        """Read scalar float/int parameter with default fallback."""
+        param = self._get_parameter_or_none(param_name)
+        if param is None:
+            return default
+        if param.type_ == Parameter.Type.DOUBLE:
+            return float(param.value)
+        if param.type_ == Parameter.Type.INTEGER:
+            return float(param.value)
+        raise ValueError(f"'{param_name}' must be a float or integer.")
 
     def _resolve_pin(self, pin_numbering: str, pin: int) -> PinType:
         """Resolve configured pin number to gpiozero pin identifier."""
