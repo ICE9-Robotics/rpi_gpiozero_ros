@@ -17,6 +17,7 @@ from rpi_gpiozero_ros.gpio_devices import (
     DigitalInputConfig,
     DigitalOutputConfig,
     PWMOutputConfig,
+    ServoOutputConfig,
     SmoothedInputConfig,
     configure_pin_factory,
 )
@@ -143,6 +144,35 @@ class GPIOZeroNode(Node):
             )
             return
 
+        if device_type == "servo":
+            initial_value = self._float_from_spec(spec.get("initial_value", 0.0), f"{path_prefix}.initial_value")
+            self._validate_signed_unit_interval(initial_value, f"{path_prefix}.initial_value")
+            min_pulse_width = self._float_from_spec(
+                spec.get("min_pulse_width", 1.0 / 1000.0), f"{path_prefix}.min_pulse_width"
+            )
+            max_pulse_width = self._float_from_spec(
+                spec.get("max_pulse_width", 2.0 / 1000.0), f"{path_prefix}.max_pulse_width"
+            )
+            frame_width = self._float_from_spec(spec.get("frame_width", 20.0 / 1000.0), f"{path_prefix}.frame_width")
+            self._validate_positive_float(min_pulse_width, f"{path_prefix}.min_pulse_width")
+            self._validate_positive_float(max_pulse_width, f"{path_prefix}.max_pulse_width")
+            self._validate_positive_float(frame_width, f"{path_prefix}.frame_width")
+            if max_pulse_width <= min_pulse_width:
+                raise ValueError(f"'{path_prefix}.max_pulse_width' must be greater than '{path_prefix}.min_pulse_width'.")
+            if frame_width <= max_pulse_width:
+                raise ValueError(f"'{path_prefix}.frame_width' must be greater than '{path_prefix}.max_pulse_width'.")
+            self._registry.add_servo_output(
+                ServoOutputConfig(
+                    name=name,
+                    pin=resolved_pin,
+                    initial_value=initial_value,
+                    min_pulse_width=min_pulse_width,
+                    max_pulse_width=max_pulse_width,
+                    frame_width=frame_width,
+                )
+            )
+            return
+
         raise ValueError(f"Unsupported {path_prefix}.type '{device_type}'.")
 
     def _collect_named_device_specs(self) -> Dict[str, Dict[str, Any]]:
@@ -234,6 +264,15 @@ class GPIOZeroNode(Node):
             )
             self._services.append(srv)
 
+        for name in self._registry.servo_outputs:
+            service_name = f"~/servo_outputs/{name}/set"
+            srv = self.create_service(
+                SetFloat32,
+                service_name,
+                partial(self._set_servo_output, output_name=name),
+            )
+            self._services.append(srv)
+
     def _publish_inputs(self) -> None:
         """Publish current state/value for input devices."""
         for name, device in self._registry.digital_inputs.items():
@@ -298,6 +337,26 @@ class GPIOZeroNode(Node):
         """Validate float values in closed unit interval."""
         if value < 0.0 or value > 1.0:
             raise ValueError(f"'{param_name}' must be in range [0.0, 1.0].")
+
+    def _validate_signed_unit_interval(self, value: float, param_name: str) -> None:
+        """Validate float values in closed signed unit interval."""
+        if value < -1.0 or value > 1.0:
+            raise ValueError(f"'{param_name}' must be in range [-1.0, 1.0].")
+
+    def _set_servo_output(
+        self, request: SetFloat32.Request, response: SetFloat32.Response, output_name: str
+    ) -> SetFloat32.Response:
+        """Handle set requests for Servo instances."""
+        value = request.data
+        if value < -1.0 or value > 1.0:
+            response.success = False
+            response.message = "Servo value must be in range [-1.0, 1.0]"
+            return response
+        device = self._registry.servo_outputs[output_name]
+        device.value = value
+        response.success = True
+        response.message = f"Set servo output '{output_name}' to {value:.3f}"
+        return response
 
     def _get_parameter_or_none(self, param_name: str) -> Optional[Parameter]:
         """Fetch parameter by name when declared or auto-declared from overrides."""

@@ -12,6 +12,7 @@ ROS 2 Jazzy Python package for Raspberry Pi GPIO control using `gpiozero`.
 - `SmoothedInputDevice`
 - `DigitalOutputDevice`
 - `PWMOutputDevice`
+- `Servo`
 
 ## Interfaces
 
@@ -19,6 +20,7 @@ ROS 2 Jazzy Python package for Raspberry Pi GPIO control using `gpiozero`.
 - Publishes smoothed input value on `~/smoothed_inputs/<name>/value` (`std_msgs/Float32`)
 - Provides digital output service `~/outputs/<name>/set` (`std_srvs/SetBool`)
 - Provides PWM output service `~/pwm_outputs/<name>/set` (`ros_common_srvs/SetFloat32`)
+- Provides servo output service `~/servo_outputs/<name>/set` (`ros_common_srvs/SetFloat32`)
 
 ## Build
 
@@ -73,3 +75,4 @@ The map key `<logical_name>` becomes the device name in topics and services. Req
 | `smoothed_input` | <ul><li><code>queue_len</code> (int, default <code>5</code>)</li><li><code>sample_wait</code> (float, default <code>0.0</code>)</li><li><code>threshold</code> (float, default <code>0.5</code>)</li><li><code>partial</code> (bool, default <code>false</code>)</li><li><code>publish_rate_hz</code> (float, optional)</li></ul> | `queue_len` must be `> 0`; `threshold` in `[0.0, 1.0]`. |
 | `digital_output` | <ul><li><code>active_high</code> (bool, default <code>true</code>)</li><li><code>initial_value</code> (bool, default <code>false</code>)</li></ul> | |
 | `pwm_output` | <ul><li><code>active_high</code> (bool, default <code>true</code>)</li><li><code>initial_value</code> (float, default <code>0.0</code>)</li><li><code>frequency</code> (float, default <code>100.0</code>)</li></ul> | `initial_value` in `[0.0, 1.0]`; `frequency` must be `> 0`. On real Pi hardware, BCM **PWM-capable pins** restrictions still apply (same as gpiozero). |
+| `servo` | <ul><li><code>initial_value</code> (float, default <code>0.0</code>)</li><li><code>min_pulse_width</code> (float, default <code>0.001</code>)</li><li><code>max_pulse_width</code> (float, default <code>0.002</code>)</li><li><code>frame_width</code> (float, default <code>0.02</code>)</li></ul> | `initial_value` and service setpoint in `[-1.0, 1.0]`; `min_pulse_width > 0`; `max_pulse_width > min_pulse_width`; `frame_width > max_pulse_width`. See [gpiozero Servo](https://gpiozero.readthedocs.io/en/stable/api_output.html#servo). |

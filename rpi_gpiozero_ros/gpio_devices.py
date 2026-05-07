@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Dict, Optional, Set, Union
 
-from gpiozero import DigitalInputDevice, DigitalOutputDevice, PWMOutputDevice, SmoothedInputDevice
+from gpiozero import DigitalInputDevice, DigitalOutputDevice, PWMOutputDevice, Servo, SmoothedInputDevice
 from gpiozero import Device
 from gpiozero.pins.mock import MockFactory, MockPWMPin
 
@@ -56,6 +56,18 @@ class PWMOutputConfig:
     frequency: float
 
 
+@dataclass(frozen=True)
+class ServoOutputConfig:
+    """Configuration for one Servo."""
+
+    name: str
+    pin: PinType
+    initial_value: float
+    min_pulse_width: float
+    max_pulse_width: float
+    frame_width: float
+
+
 def configure_pin_factory(pin_factory_mode: str) -> None:
     """Configure gpiozero pin factory mode."""
     if pin_factory_mode == "auto":
@@ -75,6 +87,7 @@ class GPIODeviceRegistry:
         self.smoothed_inputs: Dict[str, SmoothedInputDevice] = {}
         self.digital_outputs: Dict[str, DigitalOutputDevice] = {}
         self.pwm_outputs: Dict[str, PWMOutputDevice] = {}
+        self.servo_outputs: Dict[str, Servo] = {}
 
     def add_digital_input(self, config: DigitalInputConfig) -> None:
         self.digital_inputs[config.name] = DigitalInputDevice(
@@ -109,6 +122,15 @@ class GPIODeviceRegistry:
             frequency=config.frequency,
         )
 
+    def add_servo_output(self, config: ServoOutputConfig) -> None:
+        self.servo_outputs[config.name] = Servo(
+            pin=config.pin,
+            initial_value=config.initial_value,
+            min_pulse_width=config.min_pulse_width,
+            max_pulse_width=config.max_pulse_width,
+            frame_width=config.frame_width,
+        )
+
     def close(self) -> None:
         for device in self.digital_inputs.values():
             device.close()
@@ -117,4 +139,6 @@ class GPIODeviceRegistry:
         for device in self.digital_outputs.values():
             device.close()
         for device in self.pwm_outputs.values():
+            device.close()
+        for device in self.servo_outputs.values():
             device.close()
