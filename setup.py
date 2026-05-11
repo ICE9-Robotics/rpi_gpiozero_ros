@@ -9,8 +9,9 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/launch", ["launch/gpiozero_node.launch.py"]),
-        (f"share/{package_name}/config", ["config/gpiozero_params.yaml"]),
+        (f"share/{package_name}/launch", [f"launch/{filename}" for filename in __import__('os').listdir("launch")]),
+        (f"share/{package_name}/config", [f"config/{filename}" for filename in __import__('os').listdir("config")]),
+   
     ],
     install_requires=["setuptools", "gpiozero"],
     zip_safe=True,

@@ -23,6 +23,11 @@ from rpi_gpiozero_ros.gpio_devices import (
 )
 
 
+def map_range(value: float, from_range: tuple[float, float], to_range: tuple[float, float]) -> float:
+    """Remap a value from one range to another."""
+    return (value - from_range[0]) * (to_range[1] - to_range[0]) / (from_range[1] - from_range[0]) + to_range[0]
+
+
 class GPIOZeroNode(Node):
     """Expose configured gpiozero devices through ROS 2 topics/services."""
 
@@ -146,7 +151,8 @@ class GPIOZeroNode(Node):
 
         if device_type == "servo":
             initial_value = self._float_from_spec(spec.get("initial_value", 0.0), f"{path_prefix}.initial_value")
-            self._validate_signed_unit_interval(initial_value, f"{path_prefix}.initial_value")
+            self._validate_positive_float(initial_value, f"{path_prefix}.initial_value")
+            initial_value = map_range(initial_value, (0.0, 1.0), (-1.0, 1.0))
             min_pulse_width = self._float_from_spec(
                 spec.get("min_pulse_width", 1.0 / 1000.0), f"{path_prefix}.min_pulse_width"
             )
@@ -313,50 +319,51 @@ class GPIOZeroNode(Node):
         response.message = f"Set pwm output '{output_name}' to {value:.3f}"
         return response
 
-    def _validate_non_negative_int(self, value: int, param_name: str) -> None:
-        """Validate integer values that cannot be negative."""
-        if value < 0:
-            raise ValueError(f"'{param_name}' must be >= 0.")
-
-    def _validate_positive_int(self, value: int, param_name: str) -> None:
-        """Validate integer values that must be positive."""
-        if value <= 0:
-            raise ValueError(f"'{param_name}' must be > 0.")
-
-    def _validate_non_negative_float(self, value: float, param_name: str) -> None:
-        """Validate float values that cannot be negative."""
-        if value < 0.0:
-            raise ValueError(f"'{param_name}' must be >= 0.0.")
-
-    def _validate_positive_float(self, value: float, param_name: str) -> None:
-        """Validate float values that must be positive."""
-        if value <= 0.0:
-            raise ValueError(f"'{param_name}' must be > 0.0.")
-
-    def _validate_unit_interval(self, value: float, param_name: str) -> None:
-        """Validate float values in closed unit interval."""
-        if value < 0.0 or value > 1.0:
-            raise ValueError(f"'{param_name}' must be in range [0.0, 1.0].")
-
-    def _validate_signed_unit_interval(self, value: float, param_name: str) -> None:
-        """Validate float values in closed signed unit interval."""
-        if value < -1.0 or value > 1.0:
-            raise ValueError(f"'{param_name}' must be in range [-1.0, 1.0].")
-
     def _set_servo_output(
         self, request: SetFloat32.Request, response: SetFloat32.Response, output_name: str
     ) -> SetFloat32.Response:
         """Handle set requests for Servo instances."""
         value = request.data
-        if value < -1.0 or value > 1.0:
+        if value < 0 or value > 1.0:
             response.success = False
-            response.message = "Servo value must be in range [-1.0, 1.0]"
+            response.message = "Servo value must be in range [0.0, 1.0]"
             return response
         device = self._registry.servo_outputs[output_name]
-        device.value = value
+        remapped_value = map_range(value, (-1.0, 1.0), (0.0, 1.0))
+        device.value = remapped_value
         response.success = True
         response.message = f"Set servo output '{output_name}' to {value:.3f}"
         return response
+
+    def _validate_non_negative_int(self, value: int, param_name: str) -> None:
+        """Validate integer values that cannot be negative."""
+        if value < 0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be >= 0.")
+
+    def _validate_positive_int(self, value: int, param_name: str) -> None:
+        """Validate integer values that must be positive."""
+        if value <= 0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be > 0.")
+
+    def _validate_non_negative_float(self, value: float, param_name: str) -> None:
+        """Validate float values that cannot be negative."""
+        if value < 0.0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be >= 0.0.")
+
+    def _validate_positive_float(self, value: float, param_name: str) -> None:
+        """Validate float values that must be positive."""
+        if value <= 0.0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be > 0.0.")
+
+    def _validate_unit_interval(self, value: float, param_name: str) -> None:
+        """Validate float values in closed unit interval."""
+        if value < 0.0 or value > 1.0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be in range [0.0, 1.0].")
+
+    def _validate_signed_unit_interval(self, value: float, param_name: str) -> None:
+        """Validate float values in closed signed unit interval."""
+        if value < -1.0 or value > 1.0:
+            raise ValueError(f"'{param_name}' (={value:.3f}) must be in range [-1.0, 1.0].")
 
     def _get_parameter_or_none(self, param_name: str) -> Optional[Parameter]:
         """Fetch parameter by name when declared or auto-declared from overrides."""
